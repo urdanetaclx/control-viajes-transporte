@@ -356,7 +356,6 @@
                 vista: 'viaje',
                 hoyISO: new Date().toISOString().split('T')[0],
                 
-                // Datos del viaje actual (temporal para la ruta)
                 viaje: {
                     fecha: new Date().toISOString().split('T')[0],
                     nombreConductor: '',
@@ -367,14 +366,10 @@
                     ruta: ''
                 },
 
-                // BASE DE DATOS PERMANENTE EN EL TELÉFONO
-                basePasajeros: {},   // Se mantiene día tras día
-                baseConductores: {}, // Se mantiene día tras día
-
-                // LISTA TEMPORAL DE LA RUTA DEL DÍA (Inicia vacía cada día)
+                basePasajeros: {},
+                baseConductores: {},
                 pasajerosViaje: [],
 
-                // Control de búsqueda
                 busquedaCedula: '',
                 mostrarFormularioPasajero: false,
                 pasajeroEncontrado: false,
@@ -390,27 +385,30 @@
                 },
 
                 init() {
-                    // 1. Cargar Base de Datos permanente del teléfono
-                    const savedPasajeros = localStorage.getItem('db_pasajeros_v1');
-                    if (savedPasajeros) this.basePasajeros = JSON.parse(savedPasajeros);
+                    try {
+                        const savedPasajeros = localStorage.getItem('db_pasajeros_v1');
+                        if (savedPasajeros) this.basePasajeros = JSON.parse(savedPasajeros);
 
-                    const savedConductores = localStorage.getItem('db_conductores_v1');
-                    if (savedConductores) this.baseConductores = JSON.parse(savedConductores);
+                        const savedConductores = localStorage.getItem('db_conductores_v1');
+                        if (savedConductores) this.baseConductores = JSON.parse(savedConductores);
 
-                    // 2. Verificar si hay un viaje guardado HOY; si es de otro día, arrancar en blanco
-                    const viajeGuardado = localStorage.getItem('viaje_activo_v1');
-                    if (viajeGuardado) {
-                        const v = JSON.parse(viajeGuardado);
-                        if (v.fecha === this.hoyISO) {
-                            this.viaje = v;
-                            const listaActiva = localStorage.getItem('pasajeros_viaje_activo_v1');
-                            if (listaActiva) this.pasajerosViaje = JSON.parse(listaActiva);
-                        } else {
-                            // Es un día nuevo: limpiar ruta anterior automáticamente, manteniendo la BD intacta
-                            localStorage.removeItem('viaje_activo_v1');
-                            localStorage.removeItem('pasajeros_viaje_activo_v1');
-                            this.pasajerosViaje = [];
+                        const viajeGuardado = localStorage.getItem('viaje_activo_v1');
+                        if (viajeGuardado) {
+                            const v = JSON.parse(viajeGuardado);
+                            if (v && v.fecha === this.hoyISO) {
+                                this.viaje = v;
+                                const listaActiva = localStorage.getItem('pasajeros_viaje_activo_v1');
+                                if (listaActiva) this.pasajerosViaje = JSON.parse(listaActiva);
+                            } else {
+                                localStorage.removeItem('viaje_activo_v1');
+                                localStorage.removeItem('pasajeros_viaje_activo_v1');
+                                this.pasajerosViaje = [];
+                            }
                         }
+                    } catch (e) {
+                        // Si hay datos corruptos previos, limpiar automáticamente para evitar pantalla en blanco
+                        localStorage.removeItem('viaje_activo_v1');
+                        localStorage.removeItem('pasajeros_viaje_activo_v1');
                     }
                 },
 
@@ -419,14 +417,13 @@
                     if (!this.filtroBD.trim()) return todos;
                     const q = this.filtroBD.toLowerCase();
                     return todos.filter(u => 
-                        u.cedula.toLowerCase().includes(q) || 
-                        u.nombre.toLowerCase().includes(q) ||
-                        u.gerencia.toLowerCase().includes(q)
+                        (u.cedula && u.cedula.toLowerCase().includes(q)) || 
+                        (u.nombre && u.nombre.toLowerCase().includes(q)) ||
+                        (u.gerencia && u.gerencia.toLowerCase().includes(q))
                     );
                 },
 
                 verificarCambioFecha() {
-                    // Si cambias la fecha del viaje, pregunta si deseas vaciar la lista de pasajeros de la unidad
                     if (this.pasajerosViaje.length > 0) {
                         if (confirm('Cambiaste la fecha del viaje. ¿Deseas vaciar la lista de pasajeros de la unidad para esta nueva fecha? (Los usuarios siguen guardados en tu Base de Datos)')) {
                             this.pasajerosViaje = [];
@@ -436,7 +433,7 @@
                 },
 
                 buscarConductorGuardado() {
-                    const ced = this.viaje.cedulaConductor.trim();
+                    const ced = this.viaje.cedulaConductor ? this.viaje.cedulaConductor.trim() : '';
                     if (ced && this.baseConductores[ced]) {
                         if (!this.viaje.nombreConductor) this.viaje.nombreConductor = this.baseConductores[ced].nombre;
                         if (!this.viaje.telefonoConductor) this.viaje.telefonoConductor = this.baseConductores[ced].telefono;
@@ -444,11 +441,11 @@
                 },
 
                 aceptarViaje() {
-                    const ced = this.viaje.cedulaConductor.trim();
+                    const ced = this.viaje.cedulaConductor ? this.viaje.cedulaConductor.trim() : '';
                     if (ced) {
                         this.baseConductores[ced] = {
-                            nombre: this.viaje.nombreConductor.trim(),
-                            telefono: this.viaje.telefonoConductor.trim()
+                            nombre: this.viaje.nombreConductor ? this.viaje.nombreConductor.trim() : '',
+                            telefono: this.viaje.telefonoConductor ? this.viaje.telefonoConductor.trim() : ''
                         };
                         localStorage.setItem('db_conductores_v1', JSON.stringify(this.baseConductores));
                     }
@@ -466,7 +463,7 @@
                 },
 
                 buscarPasajero() {
-                    const ced = this.busquedaCedula.trim().replace(/\./g, '');
+                    const ced = this.busquedaCedula ? this.busquedaCedula.trim().replace(/\./g, '') : '';
                     if (!ced) return;
 
                     this.mostrarFormularioPasajero = true;
@@ -476,9 +473,9 @@
                         this.pasajeroEncontrado = true;
                         this.mensajeBusqueda = '✓ Usuario encontrado en la BD del teléfono. Presione Guardar para subirlo a la unidad hoy.';
                         this.formPasajero = {
-                            cedula: p.cedula,
-                            nombre: p.nombre,
-                            gerencia: p.gerencia,
+                            cedula: p.cedula || ced,
+                            nombre: p.nombre || '',
+                            gerencia: p.gerencia || '',
                             origen: p.origen || '',
                             destino: p.destino || ''
                         };
@@ -487,4 +484,112 @@
                         this.mensajeBusqueda = '⚠ Cédula nueva. Complete los datos para guardarlo en la BD del teléfono y cargarlo en la unidad.';
                         this.formPasajero = {
                             cedula: ced,
-                            nombre:
+                            nombre: '',
+                            gerencia: '',
+                            origen: '',
+                            destino: ''
+                        };
+                    }
+                },
+
+                guardarPasajero() {
+                    const ced = this.formPasajero.cedula ? this.formPasajero.cedula.trim().replace(/\./g, '') : '';
+                    const registro = {
+                        cedula: ced,
+                        nombre: this.formPasajero.nombre ? this.formPasajero.nombre.trim() : '',
+                        gerencia: this.formPasajero.gerencia ? this.formPasajero.gerencia.trim() : '',
+                        origen: this.formPasajero.origen ? this.formPasajero.origen.trim() : '',
+                        destino: this.formPasajero.destino ? this.formPasajero.destino.trim() : ''
+                    };
+
+                    this.basePasajeros[ced] = registro;
+                    localStorage.setItem('db_pasajeros_v1', JSON.stringify(this.basePasajeros));
+
+                    const idxExistente = this.pasajerosViaje.findIndex(item => item.cedula === ced);
+                    if (idxExistente !== -1) {
+                        this.pasajerosViaje[idxExistente] = registro;
+                    } else {
+                        this.pasajerosViaje.push(registro);
+                    }
+
+                    localStorage.setItem('pasajeros_viaje_activo_v1', JSON.stringify(this.pasajerosViaje));
+
+                    this.busquedaCedula = '';
+                    this.mostrarFormularioPasajero = false;
+                    this.mensajeBusqueda = '';
+                },
+
+                eliminarPasajeroDeRuta(index) {
+                    this.pasajerosViaje.splice(index, 1);
+                    localStorage.setItem('pasajeros_viaje_activo_v1', JSON.stringify(this.pasajerosViaje));
+                },
+
+                eliminarDeBaseDatos(cedula) {
+                    if (confirm(`¿Desea borrar definitivamente a la cédula ${cedula} de la base de datos del teléfono?`)) {
+                        delete this.basePasajeros[cedula];
+                        localStorage.setItem('db_pasajeros_v1', JSON.stringify(this.basePasajeros));
+                    }
+                },
+
+                reiniciarViaje() {
+                    if (confirm('¿Iniciar un viaje limpio? Se vaciará la lista de pasajeros de la unidad, pero TODOS los usuarios registrados seguirán guardados en la Base de Datos del teléfono.')) {
+                        this.viaje = {
+                            fecha: new Date().toISOString().split('T')[0],
+                            nombreConductor: '',
+                            cedulaConductor: '',
+                            telefonoConductor: '',
+                            unidad: '',
+                            horaSalida: '',
+                            ruta: ''
+                        };
+                        this.pasajerosViaje = [];
+                        localStorage.removeItem('viaje_activo_v1');
+                        localStorage.removeItem('pasajeros_viaje_activo_v1');
+                    }
+                },
+
+                exportarExcel() {
+                    const filas = [
+                        ['REPORTE DE CONTROL DE VIAJE Y PASAJEROS'],
+                        [],
+                        ['Fecha:', this.viaje.fecha, 'Hora Salida:', this.viaje.horaSalida],
+                        ['Ruta:', this.viaje.ruta, 'Unidad:', this.viaje.unidad],
+                        ['Conductor:', this.viaje.nombreConductor, 'Cédula:', this.viaje.cedulaConductor, 'Teléfono:', this.viaje.telefonoConductor],
+                        [],
+                        ['N°', 'CÉDULA', 'NOMBRE Y APELLIDO', 'GERENCIA', 'ORIGEN', 'DESTINO']
+                    ];
+
+                    this.pasajerosViaje.forEach((p, i) => {
+                        filas.push([i + 1, p.cedula, p.nombre, p.gerencia, p.origen, p.destino]);
+                    });
+
+                    const hoja = XLSX.utils.aoa_to_sheet(filas);
+                    const libro = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(libro, hoja, 'Manifiesto');
+
+                    const nombreArchivo = `Viaje_${this.viaje.ruta.replace(/\s+/g, '_')}_${this.viaje.fecha}.xlsx`;
+                    XLSX.writeFile(libro, nombreArchivo);
+                },
+
+                exportarWhatsApp() {
+                    let texto = `*REPORTE DE VIAJE - TRANSPORTE*\n`;
+                    texto += `📅 *Fecha:* ${this.viaje.fecha} | 🕒 *Salida:* ${this.viaje.horaSalida}\n`;
+                    texto += `🛣️ *Ruta:* ${this.viaje.ruta}\n`;
+                    texto += `🚌 *Unidad:* ${this.viaje.unidad}\n`;
+                    texto += `👤 *Conductor:* ${this.viaje.nombreConductor} (V-${this.viaje.cedulaConductor})\n`;
+                    texto += `📞 *Tel:* ${this.viaje.telefonoConductor}\n\n`;
+                    texto += `*LISTADO DE PASAJEROS (${this.pasajerosViaje.length}):*\n`;
+
+                    this.pasajerosViaje.forEach((p, i) => {
+                        texto += `${i + 1}. *${p.nombre}* (CI: ${p.cedula})\n`;
+                        texto += `   Gerencia: ${p.gerencia} | ${p.origen} ➔ ${p.destino}\n`;
+                    });
+
+                    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+                    window.open(url, '_blank');
+                }
+            }
+        }
+    </script>
+</body>
+</html>v
