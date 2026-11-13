@@ -22,10 +22,10 @@
                 <i class="fa-solid fa-bus text-2xl"></i>
                 <div>
                     <h1 class="text-lg font-bold leading-tight">Control de Despacho y Pasajeros</h1>
-                    <p class="text-xs text-red-200">Registro de Ruta y Manifiesto de Abordaje</p>
+                    <p class="text-xs text-red-200">Registro de Ruta y Base de Datos Local</p>
                 </div>
             </div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <button @click="vista = 'viaje'" 
                         :class="vista === 'viaje' ? 'bg-white text-red-800 font-bold' : 'bg-red-900 text-red-100 hover:bg-red-700'"
                         class="px-3 py-1.5 rounded text-sm transition">
@@ -34,7 +34,12 @@
                 <button @click="irAPasajeros()" 
                         :class="vista === 'pasajeros' ? 'bg-white text-red-800 font-bold' : 'bg-red-900 text-red-100 hover:bg-red-700'"
                         class="px-3 py-1.5 rounded text-sm transition">
-                    2. Pasajeros (<span x-text="pasajerosViaje.length"></span>)
+                    2. Ruta del Día (<span x-text="pasajerosViaje.length"></span>)
+                </button>
+                <button @click="vista = 'basedatos'" 
+                        :class="vista === 'basedatos' ? 'bg-white text-red-800 font-bold' : 'bg-red-900 text-red-100 hover:bg-red-700'"
+                        class="px-3 py-1.5 rounded text-sm transition">
+                    <i class="fa-solid fa-database mr-1"></i>Base de Datos (<span x-text="Object.keys(basePasajeros).length"></span>)
                 </button>
             </div>
         </div>
@@ -47,11 +52,14 @@
         <!-- ========================================== -->
         <section x-show="vista === 'viaje'" x-transition class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
             <div class="flex justify-between items-center border-b pb-3 mb-5">
-                <h2 class="text-xl font-bold text-slate-700">
-                    <i class="fa-solid fa-clipboard-list text-red-700 mr-2"></i>Registro de Viaje
-                </h2>
-                <button @click="reiniciarViaje()" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded font-medium">
-                    <i class="fa-solid fa-rotate-right mr-1"></i>Nuevo Viaje
+                <div>
+                    <h2 class="text-xl font-bold text-slate-700">
+                        <i class="fa-solid fa-clipboard-list text-red-700 mr-2"></i>Datos del Viaje / Unidad
+                    </h2>
+                    <p class="text-xs text-slate-500">Al iniciar un nuevo día, la lista de pasajeros de la unidad comienza vacía.</p>
+                </div>
+                <button @click="reiniciarViaje()" class="text-xs bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-3 py-2 rounded font-bold">
+                    <i class="fa-solid fa-broom mr-1"></i>Limpiar Viaje / Nuevo Día
                 </button>
             </div>
 
@@ -60,7 +68,7 @@
                 <!-- Fecha -->
                 <div>
                     <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Fecha *</label>
-                    <input type="date" x-model="viaje.fecha" required
+                    <input type="date" x-model="viaje.fecha" @change="verificarCambioFecha()" required
                            class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-600">
                 </div>
 
@@ -118,7 +126,7 @@
         </section>
 
         <!-- ========================================== -->
-        <!-- VISTA 2: HOJA DEL PASAJERO                 -->
+        <!-- VISTA 2: HOJA DEL PASAJERO (RUTA DEL DÍA)  -->
         <!-- ========================================== -->
         <section x-show="vista === 'pasajeros'" x-transition class="space-y-6">
             
@@ -150,12 +158,12 @@
             <!-- Buscador por Cédula y Formulario de Pasajero -->
             <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
                 <h2 class="text-lg font-bold text-slate-700 border-b pb-2 mb-4">
-                    <i class="fa-solid fa-user-plus text-red-700 mr-2"></i>Registro de Pasajero
+                    <i class="fa-solid fa-user-plus text-red-700 mr-2"></i>Agregar Pasajero a la Unidad
                 </h2>
 
                 <!-- Celda de Búsqueda por Cédula -->
                 <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4">
-                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Buscar Pasajero por Cédula</label>
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Buscar por Cédula en la Base de Datos del Teléfono</label>
                     <div class="flex gap-2">
                         <input type="text" x-model="busquedaCedula" @keyup.enter="buscarPasajero()" 
                                placeholder="Ingrese número de cédula (sin puntos)"
@@ -176,7 +184,7 @@
                     </template>
                 </div>
 
-                <!-- Datos del Pasajero (Se llenan solos si existe o se solicitan si es nuevo) -->
+                <!-- Datos del Pasajero -->
                 <form @submit.prevent="guardarPasajero()" x-show="mostrarFormularioPasajero" x-transition class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
                     <div>
                         <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Cédula *</label>
@@ -208,22 +216,22 @@
                                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-600">
                     </div>
 
-                    <div class="flex items-end">
+                    <div class="flex flex-col justify-end gap-2">
                         <button type="submit" 
                                 class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow transition flex items-center justify-center gap-2">
                             <i class="fa-solid fa-floppy-disk"></i>
-                            <span>Guardar Pasajero</span>
+                            <span>Guardar en BD y Subir a Unidad</span>
                         </button>
                     </div>
                 </form>
             </div>
 
-            <!-- Listado de Pasajeros del Viaje y Botones de Exportación -->
+            <!-- Listado de Pasajeros que SÍ viajaron hoy -->
             <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
                 <div class="flex flex-wrap justify-between items-center gap-4 border-b pb-4 mb-4">
                     <div>
-                        <h3 class="text-lg font-bold text-slate-700">Pasajeros Registrados en el Viaje</h3>
-                        <p class="text-xs text-slate-500">Total a bordo: <strong x-text="pasajerosViaje.length"></strong> personas</p>
+                        <h3 class="text-lg font-bold text-slate-700">Pasajeros a Bordo (Fecha: <span x-text="viaje.fecha"></span>)</h3>
+                        <p class="text-xs text-slate-500">Solo aparecen quienes abordaron hoy: <strong x-text="pasajerosViaje.length"></strong> personas</p>
                     </div>
 
                     <!-- Botones Exportar Excel y WhatsApp -->
@@ -253,14 +261,14 @@
                                 <th class="py-3 px-3">Gerencia</th>
                                 <th class="py-3 px-3">Origen</th>
                                 <th class="py-3 px-3">Destino</th>
-                                <th class="py-3 px-3 text-center">Acción</th>
+                                <th class="py-3 px-3 text-center">Quitar de Ruta</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-200">
                             <template x-if="pasajerosViaje.length === 0">
                                 <tr>
                                     <td colspan="7" class="py-8 text-center text-slate-400">
-                                        Aún no hay pasajeros registrados en este viaje. Busque una cédula arriba para comenzar.
+                                        Ningún pasajero cargado en la unidad para hoy. Busque una cédula arriba para agregarlo al viaje.
                                     </td>
                                 </tr>
                             </template>
@@ -273,8 +281,8 @@
                                     <td class="py-2.5 px-3" x-text="p.origen"></td>
                                     <td class="py-2.5 px-3" x-text="p.destino"></td>
                                     <td class="py-2.5 px-3 text-center">
-                                        <button @click="eliminarPasajero(index)" class="text-red-600 hover:text-red-800 p-1" title="Quitar del viaje">
-                                            <i class="fa-solid fa-trash"></i>
+                                        <button @click="eliminarPasajeroDeRuta(index)" class="text-red-600 hover:text-red-800 p-1" title="Quitar solo de este viaje (sigue guardado en la Base de Datos)">
+                                            <i class="fa-solid fa-user-minus"></i>
                                         </button>
                                     </td>
                                 </tr>
@@ -285,14 +293,70 @@
             </div>
 
         </section>
+
+        <!-- ========================================== -->
+        <!-- VISTA 3: BASE DE DATOS DEL TELÉFONO        -->
+        <!-- ========================================== -->
+        <section x-show="vista === 'basedatos'" x-transition class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+            <div class="flex flex-wrap justify-between items-center gap-4 border-b pb-4 mb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-700">
+                        <i class="fa-solid fa-address-book text-red-700 mr-2"></i>Base de Datos Guardada en el Teléfono
+                    </h2>
+                    <p class="text-xs text-slate-500">Aquí están todos los usuarios registrados. No se cargan en la unidad hasta que los busques en la ruta del día.</p>
+                </div>
+                <input type="text" x-model="filtroBD" placeholder="Filtrar por nombre o cédula..."
+                       class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600">
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 uppercase text-xs border-b">
+                            <th class="py-3 px-3">Cédula</th>
+                            <th class="py-3 px-3">Nombre y Apellido</th>
+                            <th class="py-3 px-3">Gerencia</th>
+                            <th class="py-3 px-3">Origen Habitual</th>
+                            <th class="py-3 px-3">Destino Habitual</th>
+                            <th class="py-3 px-3 text-center">Eliminar de BD</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                        <template x-if="listaBaseDatosFiltrada.length === 0">
+                            <tr>
+                                <td colspan="6" class="py-8 text-center text-slate-400">
+                                    No hay registros en la base de datos del teléfono.
+                                </td>
+                            </tr>
+                        </template>
+                        <template x-for="user in listaBaseDatosFiltrada" :key="user.cedula">
+                            <tr class="hover:bg-slate-50">
+                                <td class="py-2.5 px-3 font-semibold" x-text="user.cedula"></td>
+                                <td class="py-2.5 px-3" x-text="user.nombre"></td>
+                                <td class="py-2.5 px-3" x-text="user.gerencia"></td>
+                                <td class="py-2.5 px-3" x-text="user.origen"></td>
+                                <td class="py-2.5 px-3" x-text="user.destino"></td>
+                                <td class="py-2.5 px-3 text-center">
+                                    <button @click="eliminarDeBaseDatos(user.cedula)" class="text-red-600 hover:text-red-800 p-1" title="Borrar permanentemente del teléfono">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
     </main>
 
     <script>
         function sistemaViajes() {
             return {
-                vista: 'viaje', // 'viaje' o 'pasajeros'
+                vista: 'viaje',
+                hoyISO: new Date().toISOString().split('T')[0],
                 
-                // Datos del viaje actual
+                // Datos del viaje actual (temporal para la ruta)
                 viaje: {
                     fecha: new Date().toISOString().split('T')[0],
                     nombreConductor: '',
@@ -303,11 +367,11 @@
                     ruta: ''
                 },
 
-                // Base de datos persistente en el navegador (LocalStorage)
-                basePasajeros: {},   // { "12345678": { cedula, nombre, gerencia, origen, destino } }
-                baseConductores: {}, // { "87654321": { nombre, telefono } }
+                // BASE DE DATOS PERMANENTE EN EL TELÉFONO
+                basePasajeros: {},   // Se mantiene día tras día
+                baseConductores: {}, // Se mantiene día tras día
 
-                // Pasajeros abordados en el viaje actual
+                // LISTA TEMPORAL DE LA RUTA DEL DÍA (Inicia vacía cada día)
                 pasajerosViaje: [],
 
                 // Control de búsqueda
@@ -315,6 +379,7 @@
                 mostrarFormularioPasajero: false,
                 pasajeroEncontrado: false,
                 mensajeBusqueda: '',
+                filtroBD: '',
 
                 formPasajero: {
                     cedula: '',
@@ -325,18 +390,49 @@
                 },
 
                 init() {
-                    // Cargar datos almacenados localmente
+                    // 1. Cargar Base de Datos permanente del teléfono
                     const savedPasajeros = localStorage.getItem('db_pasajeros_v1');
                     if (savedPasajeros) this.basePasajeros = JSON.parse(savedPasajeros);
 
                     const savedConductores = localStorage.getItem('db_conductores_v1');
                     if (savedConductores) this.baseConductores = JSON.parse(savedConductores);
 
-                    const viajeActivo = localStorage.getItem('viaje_activo_v1');
-                    if (viajeActivo) this.viaje = JSON.parse(viajeActivo);
+                    // 2. Verificar si hay un viaje guardado HOY; si es de otro día, arrancar en blanco
+                    const viajeGuardado = localStorage.getItem('viaje_activo_v1');
+                    if (viajeGuardado) {
+                        const v = JSON.parse(viajeGuardado);
+                        if (v.fecha === this.hoyISO) {
+                            this.viaje = v;
+                            const listaActiva = localStorage.getItem('pasajeros_viaje_activo_v1');
+                            if (listaActiva) this.pasajerosViaje = JSON.parse(listaActiva);
+                        } else {
+                            // Es un día nuevo: limpiar ruta anterior automáticamente, manteniendo la BD intacta
+                            localStorage.removeItem('viaje_activo_v1');
+                            localStorage.removeItem('pasajeros_viaje_activo_v1');
+                            this.pasajerosViaje = [];
+                        }
+                    }
+                },
 
-                    const listaActiva = localStorage.getItem('pasajeros_viaje_activo_v1');
-                    if (listaActiva) this.pasajerosViaje = JSON.parse(listaActiva);
+                get listaBaseDatosFiltrada() {
+                    const todos = Object.values(this.basePasajeros);
+                    if (!this.filtroBD.trim()) return todos;
+                    const q = this.filtroBD.toLowerCase();
+                    return todos.filter(u => 
+                        u.cedula.toLowerCase().includes(q) || 
+                        u.nombre.toLowerCase().includes(q) ||
+                        u.gerencia.toLowerCase().includes(q)
+                    );
+                },
+
+                verificarCambioFecha() {
+                    // Si cambias la fecha del viaje, pregunta si deseas vaciar la lista de pasajeros de la unidad
+                    if (this.pasajerosViaje.length > 0) {
+                        if (confirm('Cambiaste la fecha del viaje. ¿Deseas vaciar la lista de pasajeros de la unidad para esta nueva fecha? (Los usuarios siguen guardados en tu Base de Datos)')) {
+                            this.pasajerosViaje = [];
+                            localStorage.removeItem('pasajeros_viaje_activo_v1');
+                        }
+                    }
                 },
 
                 buscarConductorGuardado() {
@@ -348,7 +444,6 @@
                 },
 
                 aceptarViaje() {
-                    // Guardar conductor en el directorio local para futuros viajes
                     const ced = this.viaje.cedulaConductor.trim();
                     if (ced) {
                         this.baseConductores[ced] = {
@@ -377,10 +472,9 @@
                     this.mostrarFormularioPasajero = true;
 
                     if (this.basePasajeros[ced]) {
-                        // Pasajero ya existe en la base local
                         const p = this.basePasajeros[ced];
                         this.pasajeroEncontrado = true;
-                        this.mensajeBusqueda = '✓ Pasajero registrado encontrado. Verifique origen/destino y presione Guardar.';
+                        this.mensajeBusqueda = '✓ Usuario encontrado en la BD del teléfono. Presione Guardar para subirlo a la unidad hoy.';
                         this.formPasajero = {
                             cedula: p.cedula,
                             nombre: p.nombre,
@@ -389,116 +483,8 @@
                             destino: p.destino || ''
                         };
                     } else {
-                        // Pasajero nuevo: solicitar todos los datos
                         this.pasajeroEncontrado = false;
-                        this.mensajeBusqueda = '⚠ Cédula no registrada. Complete los datos del pasajero para guardarlo.';
+                        this.mensajeBusqueda = '⚠ Cédula nueva. Complete los datos para guardarlo en la BD del teléfono y cargarlo en la unidad.';
                         this.formPasajero = {
                             cedula: ced,
-                            nombre: '',
-                            gerencia: '',
-                            origen: '',
-                            destino: ''
-                        };
-                    }
-                },
-
-                guardarPasajero() {
-                    const ced = this.formPasajero.cedula.trim().replace(/\./g, '');
-                    const registro = {
-                        cedula: ced,
-                        nombre: this.formPasajero.nombre.trim(),
-                        gerencia: this.formPasajero.gerencia.trim(),
-                        origen: this.formPasajero.origen.trim(),
-                        destino: this.formPasajero.destino.trim()
-                    };
-
-                    // 1. Guardar/Actualizar en la base de datos permanente del navegador
-                    this.basePasajeros[ced] = registro;
-                    localStorage.setItem('db_pasajeros_v1', JSON.stringify(this.basePasajeros));
-
-                    // 2. Evitar duplicados en el mismo viaje (si ya estaba, lo actualiza)
-                    const idxExistente = this.pasajerosViaje.findIndex(item => item.cedula === ced);
-                    if (idxExistente !== -1) {
-                        this.pasajerosViaje[idxExistente] = registro;
-                    } else {
-                        this.pasajerosViaje.push(registro);
-                    }
-
-                    localStorage.setItem('pasajeros_viaje_activo_v1', JSON.stringify(this.pasajerosViaje));
-
-                    // 3. Limpiar buscador para el siguiente pasajero
-                    this.busquedaCedula = '';
-                    this.mostrarFormularioPasajero = false;
-                    this.mensajeBusqueda = '';
-                },
-
-                eliminarPasajero(index) {
-                    if (confirm('¿Desea quitar a este pasajero de la lista del viaje?')) {
-                        this.pasajerosViaje.splice(index, 1);
-                        localStorage.setItem('pasajeros_viaje_activo_v1', JSON.stringify(this.pasajerosViaje));
-                    }
-                },
-
-                reiniciarViaje() {
-                    if (confirm('¿Desea iniciar un nuevo viaje? Se limpiará la lista actual (los datos de pasajeros registrados quedan guardados para búsquedas futuras).')) {
-                        this.viaje = {
-                            fecha: new Date().toISOString().split('T')[0],
-                            nombreConductor: '',
-                            cedulaConductor: '',
-                            telefonoConductor: '',
-                            unidad: '',
-                            horaSalida: '',
-                            ruta: ''
-                        };
-                        this.pasajerosViaje = [];
-                        localStorage.removeItem('viaje_activo_v1');
-                        localStorage.removeItem('pasajeros_viaje_activo_v1');
-                    }
-                },
-
-                exportarExcel() {
-                    // Construir matriz de datos con cabecera del viaje + tabla de pasajeros
-                    const filas = [
-                        ['REPORTE DE CONTROL DE VIAJE Y PASAJEROS'],
-                        [],
-                        ['Fecha:', this.viaje.fecha, 'Hora Salida:', this.viaje.horaSalida],
-                        ['Ruta:', this.viaje.ruta, 'Unidad:', this.viaje.unidad],
-                        ['Conductor:', this.viaje.nombreConductor, 'Cédula:', this.viaje.cedulaConductor, 'Teléfono:', this.viaje.telefonoConductor],
-                        [],
-                        ['N°', 'CÉDULA', 'NOMBRE Y APELLIDO', 'GERENCIA', 'ORIGEN', 'DESTINO']
-                    ];
-
-                    this.pasajerosViaje.forEach((p, i) => {
-                        filas.push([i + 1, p.cedula, p.nombre, p.gerencia, p.origen, p.destino]);
-                    });
-
-                    const hoja = XLSX.utils.aoa_to_sheet(filas);
-                    const libro = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(libro, hoja, 'Manifiesto');
-
-                    const nombreArchivo = `Viaje_${this.viaje.ruta.replace(/\s+/g, '_')}_${this.viaje.fecha}.xlsx`;
-                    XLSX.writeFile(libro, nombreArchivo);
-                },
-
-                exportarWhatsApp() {
-                    let texto = `*REPORTE DE VIAJE - TRANSPORTE*\n`;
-                    texto += `📅 *Fecha:* ${this.viaje.fecha} | 🕒 *Salida:* ${this.viaje.horaSalida}\n`;
-                    texto += `🛣️ *Ruta:* ${this.viaje.ruta}\n`;
-                    texto += `🚌 *Unidad:* ${this.viaje.unidad}\n`;
-                    texto += `👤 *Conductor:* ${this.viaje.nombreConductor} (V-${this.viaje.cedulaConductor})\n`;
-                    texto += `📞 *Tel:* ${this.viaje.telefonoConductor}\n\n`;
-                    texto += `*LISTADO DE PASAJEROS (${this.pasajerosViaje.length}):*\n`;
-
-                    this.pasajerosViaje.forEach((p, i) => {
-                        texto += `${i + 1}. *${p.nombre}* (CI: ${p.cedula})\n`;
-                        texto += `   Gerencia: ${p.gerencia} | ${p.origen} ➔ ${p.destino}\n`;
-                    });
-
-                    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
-                    window.open(url, '_blank');
-                }
-            }
-        }
-    </script>
-</body>
-</html>
+                            nombre:
