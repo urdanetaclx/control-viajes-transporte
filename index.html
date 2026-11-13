@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Viajes y Pasajeros</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- SheetJS para exportar a Excel real (.xlsx) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen" x-data="sistemaViajes()">
+
+    <!-- Barra Superior -->
+    <header class="bg-red-800 text-white shadow-md">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-bus text-2xl"></i>
+                <div>
+                    <h1 class="text-lg font-bold leading-tight">Control de Despacho y Pasajeros</h1>
+                    <p class="text-xs text-red-200">Registro de Ruta y Manifiesto de Abordaje</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button @click="vista = 'viaje'" 
+                        :class="vista === 'viaje' ? 'bg-white text-red-800 font-bold' : 'bg-red-900 text-red-100 hover:bg-red-700'"
+                        class="px-3 py-1.5 rounded text-sm transition">
+                    1. Datos del Viaje
+                </button>
+                <button @click="irAPasajeros()" 
+                        :class="vista === 'pasajeros' ? 'bg-white text-red-800 font-bold' : 'bg-red-900 text-red-100 hover:bg-red-700'"
+                        class="px-3 py-1.5 rounded text-sm transition">
+                    2. Pasajeros (<span x-text="pasajerosViaje.length"></span>)
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto p-4 mt-4">
+
+        <!-- ========================================== -->
+        <!-- VISTA 1: REGISTRO DEL VIAJE Y CONDUCTOR    -->
+        <!-- ========================================== -->
+        <section x-show="vista === 'viaje'" x-transition class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-3 mb-5">
+                <h2 class="text-xl font-bold text-slate-700">
+                    <i class="fa-solid fa-clipboard-list text-red-700 mr-2"></i>Registro de Viaje
+                </h2>
+                <button @click="reiniciarViaje()" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded font-medium">
+                    <i class="fa-solid fa-rotate-right mr-1"></i>Nuevo Viaje
+                </button>
+            </div>
+
+            <form @submit.prevent="aceptarViaje()" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                
+                <!-- Fecha -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Fecha *</label>
+                    <input type="date" x-model="viaje.fecha" required
+                           class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-600">
+                </div>
+
+                <!-- Hora de Salida -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Hora de Salida *</label>
+                    <input type="time" x-model="viaje.horaSalida" required
+                           class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-600">
+                </div>
+
+                <!-- Número de Unidad -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Número de Unidad *</label>
+                    <input type="text" x-model="viaje.unidad" placeholder="Ej: U-104 / Placa" required
+                           class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-600">
+                </div>
+
+                <!-- Cédula del Conductor -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Cédula del Conductor *</label>
+                    <input type="text" x-model="viaje.cedulaConductor" @blur="buscarConductorGuardado()" placeholder="Ej: 12345678" required
+                           class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-600">
+                </div>
+
+                <!-- Nombre del Conductor -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Nombre del Conductor *</label>
+                    <input type="text" x-model="viaje.nombreConductor" placeholder="Nombre y Apellido" required
+                           class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-600">
+                </div>
+
+                <!-- Teléfono del Conductor -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Teléfono del Conductor *</label>
+                    <input type="tel" x-model="viaje.telefonoConductor" placeholder="Ej: 0414-1234567" required
+                           class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-600">
+                </div>
+
+                <!-- Nombre de la Ruta -->
+                <div class="md:col-span-2 lg:col-span-3">
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Nombre de la Ruta *</label>
+                    <input type="text" x-model="viaje.ruta" placeholder="Ej: Lagunillas - Cabimas / Patio de Tanques" required
+                           class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-600">
+                </div>
+
+                <!-- Botón Aceptar -->
+                <div class="md:col-span-2 lg:col-span-3 flex justify-end mt-4 pt-4 border-t">
+                    <button type="submit" 
+                            class="w-full md:w-auto bg-red-700 hover:bg-red-800 text-white font-bold py-3 px-8 rounded-lg shadow transition flex items-center justify-center gap-2">
+                        <span>Aceptar y Cargar Pasajeros</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VISTA 2: HOJA DEL PASAJERO                 -->
+        <!-- ========================================== -->
+        <section x-show="vista === 'pasajeros'" x-transition class="space-y-6">
+            
+            <!-- Resumen del Viaje Activo -->
+            <div class="bg-slate-800 text-white rounded-xl p-4 shadow flex flex-wrap justify-between items-center gap-4 text-sm">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 w-full lg:w-auto flex-1">
+                    <div>
+                        <span class="text-slate-400 block text-xs">Fecha / Hora</span>
+                        <span class="font-semibold" x-text="viaje.fecha + ' | ' + viaje.horaSalida"></span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block text-xs">Ruta</span>
+                        <span class="font-semibold" x-text="viaje.ruta"></span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block text-xs">Unidad</span>
+                        <span class="font-semibold" x-text="viaje.unidad"></span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block text-xs">Conductor</span>
+                        <span class="font-semibold" x-text="viaje.nombreConductor + ' (' + viaje.telefonoConductor + ')'"></span>
+                    </div>
+                </div>
+                <button @click="vista = 'viaje'" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded text-xs font-bold whitespace-nowrap">
+                    <i class="fa-solid fa-pen-to-square mr-1"></i>Editar Viaje
+                </button>
+            </div>
+
+            <!-- Buscador por Cédula y Formulario de Pasajero -->
+            <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-700 border-b pb-2 mb-4">
+                    <i class="fa-solid fa-user-plus text-red-700 mr-2"></i>Registro de Pasajero
+                </h2>
+
+                <!-- Celda de Búsqueda por Cédula -->
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4">
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Buscar Pasajero por Cédula</label>
+                    <div class="flex gap-2">
+                        <input type="text" x-model="busquedaCedula" @keyup.enter="buscarPasajero()" 
+                               placeholder="Ingrese número de cédula (sin puntos)"
+                               class="flex-1 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-600 font-semibold">
+                        <button type="button" @click="buscarPasajero()" 
+                                class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2 rounded-lg font-bold transition flex items-center gap-2">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <span>Buscar</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Alerta de estado de búsqueda -->
+                    <template x-if="mensajeBusqueda">
+                        <div class="mt-2 text-xs font-semibold px-3 py-1.5 rounded"
+                             :class="pasajeroEncontrado ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+                            <span x-text="mensajeBusqueda"></span>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Datos del Pasajero (Se llenan solos si existe o se solicitan si es nuevo) -->
+                <form @submit.prevent="guardarPasajero()" x-show="mostrarFormularioPasajero" x-transition class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Cédula *</label>
+                        <input type="text" x-model="formPasajero.cedula" required
+                               class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-red-600">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Nombre y Apellido *</label>
+                        <input type="text" x-model="formPasajero.nombre" placeholder="Ej: Juan Pérez" required
+                               class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-600">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Gerencia *</label>
+                        <input type="text" x-model="formPasajero.gerencia" placeholder="Ej: Transporte Terrestre" required
+                               class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-600">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Origen *</label>
+                        <input type="text" x-model="formPasajero.origen" placeholder="Punto de abordaje" required
+                               class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-600">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Destino *</label>
+                        <input type="text" x-model="formPasajero.destino" placeholder="Punto de bajada" required
+                               class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-600">
+                    </div>
+
+                    <div class="flex items-end">
+                        <button type="submit" 
+                                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>Guardar Pasajero</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Listado de Pasajeros del Viaje y Botones de Exportación -->
+            <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+                <div class="flex flex-wrap justify-between items-center gap-4 border-b pb-4 mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-700">Pasajeros Registrados en el Viaje</h3>
+                        <p class="text-xs text-slate-500">Total a bordo: <strong x-text="pasajerosViaje.length"></strong> personas</p>
+                    </div>
+
+                    <!-- Botones Exportar Excel y WhatsApp -->
+                    <div class="flex flex-wrap gap-2">
+                        <button @click="exportarExcel()" :disabled="pasajerosViaje.length === 0"
+                                class="bg-green-700 hover:bg-green-800 disabled:opacity-40 text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow transition flex items-center gap-2">
+                            <i class="fa-solid fa-file-excel"></i>
+                            <span>Exportar a Excel</span>
+                        </button>
+
+                        <button @click="exportarWhatsApp()" :disabled="pasajerosViaje.length === 0"
+                                class="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow transition flex items-center gap-2">
+                            <i class="fa-brands fa-whatsapp text-lg"></i>
+                            <span>Exportar a WhatsApp</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla Responsiva -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 uppercase text-xs border-b">
+                                <th class="py-3 px-3">#</th>
+                                <th class="py-3 px-3">Cédula</th>
+                                <th class="py-3 px-3">Nombre y Apellido</th>
+                                <th class="py-3 px-3">Gerencia</th>
+                                <th class="py-3 px-3">Origen</th>
+                                <th class="py-3 px-3">Destino</th>
+                                <th class="py-3 px-3 text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200">
+                            <template x-if="pasajerosViaje.length === 0">
+                                <tr>
+                                    <td colspan="7" class="py-8 text-center text-slate-400">
+                                        Aún no hay pasajeros registrados en este viaje. Busque una cédula arriba para comenzar.
+                                    </td>
+                                </tr>
+                            </template>
+                            <template x-for="(p, index) in pasajerosViaje" :key="index">
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2.5 px-3 font-bold text-slate-500" x-text="index + 1"></td>
+                                    <td class="py-2.5 px-3 font-semibold" x-text="p.cedula"></td>
+                                    <td class="py-2.5 px-3" x-text="p.nombre"></td>
+                                    <td class="py-2.5 px-3" x-text="p.gerencia"></td>
+                                    <td class="py-2.5 px-3" x-text="p.origen"></td>
+                                    <td class="py-2.5 px-3" x-text="p.destino"></td>
+                                    <td class="py-2.5 px-3 text-center">
+                                        <button @click="eliminarPasajero(index)" class="text-red-600 hover:text-red-800 p-1" title="Quitar del viaje">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        function sistemaViajes() {
+            return {
+                vista: 'viaje', // 'viaje' o 'pasajeros'
+                
+                // Datos del viaje actual
+                viaje: {
+                    fecha: new Date().toISOString().split('T')[0],
+                    nombreConductor: '',
+                    cedulaConductor: '',
+                    telefonoConductor: '',
+                    unidad: '',
+                    horaSalida: '',
+                    ruta: ''
+                },
+
+                // Base de datos persistente en el navegador (LocalStorage)
+                basePasajeros: {},   // { "12345678": { cedula, nombre, gerencia, origen, destino } }
+                baseConductores: {}, // { "87654321": { nombre, telefono } }
+
+                // Pasajeros abordados en el viaje actual
+                pasajerosViaje: [],
+
+                // Control de búsqueda
+                busquedaCedula: '',
+                mostrarFormularioPasajero: false,
+                pasajeroEncontrado: false,
+                mensajeBusqueda: '',
+
+                formPasajero: {
+                    cedula: '',
+                    nombre: '',
+                    gerencia: '',
+                    origen: '',
+                    destino: ''
+                },
+
+                init() {
+                    // Cargar datos almacenados localmente
+                    const savedPasajeros = localStorage.getItem('db_pasajeros_v1');
+                    if (savedPasajeros) this.basePasajeros = JSON.parse(savedPasajeros);
+
+                    const savedConductores = localStorage.getItem('db_conductores_v1');
+                    if (savedConductores) this.baseConductores = JSON.parse(savedConductores);
+
+                    const viajeActivo = localStorage.getItem('viaje_activo_v1');
+                    if (viajeActivo) this.viaje = JSON.parse(viajeActivo);
+
+                    const listaActiva = localStorage.getItem('pasajeros_viaje_activo_v1');
+                    if (listaActiva) this.pasajerosViaje = JSON.parse(listaActiva);
+                },
+
+                buscarConductorGuardado() {
+                    const ced = this.viaje.cedulaConductor.trim();
+                    if (ced && this.baseConductores[ced]) {
+                        if (!this.viaje.nombreConductor) this.viaje.nombreConductor = this.baseConductores[ced].nombre;
+                        if (!this.viaje.telefonoConductor) this.viaje.telefonoConductor = this.baseConductores[ced].telefono;
+                    }
+                },
+
+                aceptarViaje() {
+                    // Guardar conductor en el directorio local para futuros viajes
+                    const ced = this.viaje.cedulaConductor.trim();
+                    if (ced) {
+                        this.baseConductores[ced] = {
+                            nombre: this.viaje.nombreConductor.trim(),
+                            telefono: this.viaje.telefonoConductor.trim()
+                        };
+                        localStorage.setItem('db_conductores_v1', JSON.stringify(this.baseConductores));
+                    }
+
+                    localStorage.setItem('viaje_activo_v1', JSON.stringify(this.viaje));
+                    this.vista = 'pasajeros';
+                },
+
+                irAPasajeros() {
+                    if (!this.viaje.ruta || !this.viaje.nombreConductor || !this.viaje.unidad) {
+                        alert('Por favor complete los datos del viaje y presione Aceptar primero.');
+                        return;
+                    }
+                    this.vista = 'pasajeros';
+                },
+
+                buscarPasajero() {
+                    const ced = this.busquedaCedula.trim().replace(/\./g, '');
+                    if (!ced) return;
+
+                    this.mostrarFormularioPasajero = true;
+
+                    if (this.basePasajeros[ced]) {
+                        // Pasajero ya existe en la base local
+                        const p = this.basePasajeros[ced];
+                        this.pasajeroEncontrado = true;
+                        this.mensajeBusqueda = '✓ Pasajero registrado encontrado. Verifique origen/destino y presione Guardar.';
+                        this.formPasajero = {
+                            cedula: p.cedula,
+                            nombre: p.nombre,
+                            gerencia: p.gerencia,
+                            origen: p.origen || '',
+                            destino: p.destino || ''
+                        };
+                    } else {
+                        // Pasajero nuevo: solicitar todos los datos
+                        this.pasajeroEncontrado = false;
+                        this.mensajeBusqueda = '⚠ Cédula no registrada. Complete los datos del pasajero para guardarlo.';
+                        this.formPasajero = {
+                            cedula: ced,
+                            nombre: '',
+                            gerencia: '',
+                            origen: '',
+                            destino: ''
+                        };
+                    }
+                },
+
+                guardarPasajero() {
+                    const ced = this.formPasajero.cedula.trim().replace(/\./g, '');
+                    const registro = {
+                        cedula: ced,
+                        nombre: this.formPasajero.nombre.trim(),
+                        gerencia: this.formPasajero.gerencia.trim(),
+                        origen: this.formPasajero.origen.trim(),
+                        destino: this.formPasajero.destino.trim()
+                    };
+
+                    // 1. Guardar/Actualizar en la base de datos permanente del navegador
+                    this.basePasajeros[ced] = registro;
+                    localStorage.setItem('db_pasajeros_v1', JSON.stringify(this.basePasajeros));
+
+                    // 2. Evitar duplicados en el mismo viaje (si ya estaba, lo actualiza)
+                    const idxExistente = this.pasajerosViaje.findIndex(item => item.cedula === ced);
+                    if (idxExistente !== -1) {
+                        this.pasajerosViaje[idxExistente] = registro;
+                    } else {
+                        this.pasajerosViaje.push(registro);
+                    }
+
+                    localStorage.setItem('pasajeros_viaje_activo_v1', JSON.stringify(this.pasajerosViaje));
+
+                    // 3. Limpiar buscador para el siguiente pasajero
+                    this.busquedaCedula = '';
+                    this.mostrarFormularioPasajero = false;
+                    this.mensajeBusqueda = '';
+                },
+
+                eliminarPasajero(index) {
+                    if (confirm('¿Desea quitar a este pasajero de la lista del viaje?')) {
+                        this.pasajerosViaje.splice(index, 1);
+                        localStorage.setItem('pasajeros_viaje_activo_v1', JSON.stringify(this.pasajerosViaje));
+                    }
+                },
+
+                reiniciarViaje() {
+                    if (confirm('¿Desea iniciar un nuevo viaje? Se limpiará la lista actual (los datos de pasajeros registrados quedan guardados para búsquedas futuras).')) {
+                        this.viaje = {
+                            fecha: new Date().toISOString().split('T')[0],
+                            nombreConductor: '',
+                            cedulaConductor: '',
+                            telefonoConductor: '',
+                            unidad: '',
+                            horaSalida: '',
+                            ruta: ''
+                        };
+                        this.pasajerosViaje = [];
+                        localStorage.removeItem('viaje_activo_v1');
+                        localStorage.removeItem('pasajeros_viaje_activo_v1');
+                    }
+                },
+
+                exportarExcel() {
+                    // Construir matriz de datos con cabecera del viaje + tabla de pasajeros
+                    const filas = [
+                        ['REPORTE DE CONTROL DE VIAJE Y PASAJEROS'],
+                        [],
+                        ['Fecha:', this.viaje.fecha, 'Hora Salida:', this.viaje.horaSalida],
+                        ['Ruta:', this.viaje.ruta, 'Unidad:', this.viaje.unidad],
+                        ['Conductor:', this.viaje.nombreConductor, 'Cédula:', this.viaje.cedulaConductor, 'Teléfono:', this.viaje.telefonoConductor],
+                        [],
+                        ['N°', 'CÉDULA', 'NOMBRE Y APELLIDO', 'GERENCIA', 'ORIGEN', 'DESTINO']
+                    ];
+
+                    this.pasajerosViaje.forEach((p, i) => {
+                        filas.push([i + 1, p.cedula, p.nombre, p.gerencia, p.origen, p.destino]);
+                    });
+
+                    const hoja = XLSX.utils.aoa_to_sheet(filas);
+                    const libro = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(libro, hoja, 'Manifiesto');
+
+                    const nombreArchivo = `Viaje_${this.viaje.ruta.replace(/\s+/g, '_')}_${this.viaje.fecha}.xlsx`;
+                    XLSX.writeFile(libro, nombreArchivo);
+                },
+
+                exportarWhatsApp() {
+                    let texto = `*REPORTE DE VIAJE - TRANSPORTE*\n`;
+                    texto += `📅 *Fecha:* ${this.viaje.fecha} | 🕒 *Salida:* ${this.viaje.horaSalida}\n`;
+                    texto += `🛣️ *Ruta:* ${this.viaje.ruta}\n`;
+                    texto += `🚌 *Unidad:* ${this.viaje.unidad}\n`;
+                    texto += `👤 *Conductor:* ${this.viaje.nombreConductor} (V-${this.viaje.cedulaConductor})\n`;
+                    texto += `📞 *Tel:* ${this.viaje.telefonoConductor}\n\n`;
+                    texto += `*LISTADO DE PASAJEROS (${this.pasajerosViaje.length}):*\n`;
+
+                    this.pasajerosViaje.forEach((p, i) => {
+                        texto += `${i + 1}. *${p.nombre}* (CI: ${p.cedula})\n`;
+                        texto += `   Gerencia: ${p.gerencia} | ${p.origen} ➔ ${p.destino}\n`;
+                    });
+
+                    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+                    window.open(url, '_blank');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
